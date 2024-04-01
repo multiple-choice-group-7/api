@@ -8,6 +8,7 @@ const User = require('./models/user');
 
 const authRoutes = require('./routes/auth');
 const examRoutes = require('./routes/exam');
+const adminRoutes = require('./routes/admin');
 
 const app = express();
 
@@ -16,7 +17,8 @@ dotenv.config();
 app.use(bodyParser.json()); // application/json
 
 app.use('/api', authRoutes);
-app.use('/api', examRoutes);
+app.use('/api/admin', adminRoutes);
+app.use('/api/exam', examRoutes);
 
 app.use((error, req, res, next) => {
     console.log(error);
