@@ -447,8 +447,8 @@ exports.deleteUser = async (req, res, next) => {
 
 exports.getStatistics = async (req, res, next) => {
     try {
-        const examType = req.params.examType;
-        const examDate = req.params.examDate;
+        const examType = req.query.examType;
+        const examDate = req.query.examDate;
         let query = {};
 
         if(examType) {
@@ -528,8 +528,8 @@ exports.getStatistics = async (req, res, next) => {
 
 exports.getDetailResult = async (req, res, next) => {
     try {
-        const fullname = req.params.fullname;
-        const idStudent = req.params.idStudent;
+        const fullname = req.query.fullname;
+        const idStudent = req.query.idStudent;
 
         let query = {};
         if(fullname) {
