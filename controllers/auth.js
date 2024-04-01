@@ -9,6 +9,8 @@ exports.signup = async (req, res, next) => {
     const email = req.body.email;
     const password = req.body.password;
     const username = req.body.username;
+    const idStudent = req.body.idStudent;
+    const fullname = req.body.fullname;
 
     try {
         if (!errors.isEmpty()) {
@@ -23,7 +25,9 @@ exports.signup = async (req, res, next) => {
             email: email,
             password: hashedPassword,
             username: username,
-            role: 'user',
+            role: 'student',
+            idStudent: idStudent,
+            fullname: fullname
         });
 
         const result = await user.save();
@@ -58,7 +62,7 @@ exports.login = async (req, res, next) => {
             username: user.email,
             userId: user._id.toString(),
         }, process.env.JWT_SECRET, {expiresIn: process.env.JWT_EXPIRES_IN});
-        res.status(200).json({token: token, userId: user._id.toString()});
+        res.status(200).json({message: 'Login successfully!', token: token});
     } catch (error) {
         if (!error.statusCode) {
             error.statusCode = 500;
