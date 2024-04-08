@@ -8,18 +8,20 @@ const examSchema = new mongoose.Schema({
     description: {
         type: String
     },
-    type: 
+    typeExam: 
     {
+        type: String,
+        required: true
+    },
+    typeTime: {
         type: String,
         required: true
     },
     startTime: {
         type: Date,
-        required: true
     },
     endTime: {
         type: Date,
-        required: true
     },
     questions: [
         {
