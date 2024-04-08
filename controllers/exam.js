@@ -21,7 +21,10 @@ exports.getExams = async (req, res, next) => {
             error.statusCode = 404;
             throw error;
         }
-        res.status(200).json({message: 'Exams fetched', data: exams});
+        const result = await Result.find({user: req.userId}).populate('exam');
+        const doneExams = result.map(res => res.exam);
+        const undoExams = exams.filter(exam => !doneExams.find(doneExam => doneExam._id.toString() === exam._id.toString()));
+        res.status(200).json({message: 'Exams fetched', doneExams: doneExams, undoExams: undoExams});
     } catch (error) {
         if (!error.statusCode) {
             error.statusCode = 500;
@@ -33,6 +36,12 @@ exports.getExams = async (req, res, next) => {
 exports.getExamById = async (req, res, next) => {
     const examId = req.params.examId;
     try {
+        const result = await Result.findOne({exam: examId, user: req.userId});
+        if (result) {
+            const error = new Error('You have already done this exam');
+            error.statusCode = 403;
+            throw error;
+        }
         const exam = await Exam.findById(examId).populate({
             path: 'questions',
             populate: {
@@ -61,6 +70,12 @@ exports.submitExam = async (req, res, next) => {
     const answers = req.body.answers;
     const totalTime = req.body.totalTime;
     try {
+        const check = await Result.findOne({exam: examId, user: userId});
+        if (check) {
+            const error = new Error('You have already done this exam');
+            error.statusCode = 403;
+            throw error;
+        }
         const exam = await Exam.findById(examId).populate('questions');
         if (!exam) {
             const error = new Error('Exam not found');
@@ -108,7 +123,7 @@ exports.getResult = async (req, res, next) => {
         const results = await Result.find({user: userId})
             .populate({
                 path: 'exam',
-                select: 'title passingScore description type startTime endTime isFinished -_id'
+                select: 'title passingScore description typeExam typeTime startTime endTime isFinished -_id'
             }).populate({
                 path: 'answers.question',
             }).populate({

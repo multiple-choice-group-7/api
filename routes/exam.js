@@ -18,7 +18,13 @@ router.get('/:examId', isAuth, examController.getExamById);
 // Submit the exam
 // POST /api/v1/exam/:examId
 router.post('/:examId', isAuth, [
-    body('answers').isArray({min: 3}),
+    body('answers').isArray({min: 3}).custom((value) => {
+        value.forEach(answer => {
+            if (typeof answer !== 'number' || answer < 0 || answer > 3) {
+                return Promise.reject('Invalid answer format');
+            }
+        });
+    }),
     body('totalTime').isNumeric().isInt({min: 1}),
 ], examController.submitExam);
 
