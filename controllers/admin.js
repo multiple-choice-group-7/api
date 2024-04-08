@@ -65,22 +65,6 @@ exports.getDashboard = async (req, res, next) => {
     }
 }
 
-exports.getQuestionsForExam = async (req, res, next) => {
-    try {
-        const questions = await Question.find();
-        if(!questions) {
-            const error = new Error('Questions not found');
-            error.statusCode = 404;
-            throw error;
-        }
-
-        res.status(200).json({message: 'Questions fetched successfully', questions: questions, type: ['practice', 'midterm', 'final']});
-    } catch (err) {
-        err.statusCode = 500;
-        next(err);
-    }
-}
-
 exports.createQuestion = async (req, res, next) => {
     const errors = validationResult(req);
     const question = req.body.question;
@@ -196,7 +180,8 @@ exports.createExam = async (req, res, next) => {
     const errors = validationResult(req);
     const title = req.body.title;
     const description = req.body.description;
-    const type = req.body.type;
+    const typeExam = req.body.typeExam;
+    const typeTime = req.body.typeTime;
     const startTime = req.body.startTime;
     const endTime = req.body.endTime;
     const questions = req.body.questions;
@@ -219,7 +204,8 @@ exports.createExam = async (req, res, next) => {
         const exam = new Exam({
             title: title,
             description: description,
-            type: type,
+            typeExam: typeExam,
+            typeTime: typeTime,
             startTime: startTime,
             endTime: endTime,
             questions: questions,
@@ -241,7 +227,7 @@ exports.getExamById = async (req, res, next) => {
     const examId = req.params.examId;
 
     try {
-        const exam = await Exam.findById(examId);
+        const exam = await Exam.findById(examId).populate('questions.question');
         if(!exam) {
             const error = new Error('Exam not found');
             error.statusCode = 404;
@@ -262,7 +248,8 @@ exports.updateExam = async (req, res, next) => {
     const examId = req.params.examId;
     const title = req.body.title;
     const description = req.body.description;
-    const type = req.body.type;
+    const typeExam = req.body.typeExam;
+    const typeTime = req.body.typeTime;
     const startTime = req.body.startTime;
     const endTime = req.body.endTime;
     const questions = req.body.questions;
@@ -291,7 +278,8 @@ exports.updateExam = async (req, res, next) => {
 
         exam.title = title;
         exam.description = description;
-        exam.type = type;
+        exam.typeExam = typeExam;
+        exam.typeTime = typeTime;
         exam.startTime = startTime;
         exam.endTime = endTime;
         exam.questions = questions;
@@ -318,6 +306,14 @@ exports.deleteExam = async (req, res, next) => {
             error.statusCode = 404;
             throw error;
         }
+
+        // delete all questions of the exam
+        exam.questions.forEach(async question => {
+            await Question.findByIdAndDelete(question.question);
+        });
+
+        // delete the result of the exam
+        await Result.deleteMany({exam: examId});
 
         await Exam.findByIdAndDelete(examId);
         res.status(200).json({message: 'Exam deleted!'});
@@ -435,6 +431,10 @@ exports.deleteUser = async (req, res, next) => {
             error.statusCode = 404;
             throw error;
         }
+
+        // delete the result of the user
+        await Result.deleteMany({user: userId});
+
         await User.findByIdAndDelete(userId);
         res.status(200).json({message: 'User deleted!'});
     } catch (error) {
@@ -554,7 +554,7 @@ exports.getDetailResult = async (req, res, next) => {
             const results = await Result.find(query)
                 .populate({
                     path: 'exam',
-                    select: 'title passingScore description type startTime endTime isFinished -_id'
+                    select: 'title passingScore description typeExam typeTime startTime endTime isFinished -_id'
                 }).populate({
                     path: 'answers.question',
                 }).select('score isPassed exam answers totalTime correctNumber');

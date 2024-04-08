@@ -11,11 +11,7 @@ const adminController = require('../controllers/admin');
 // GET /api/v1/admin/dashboard
 router.get('/dashboard', [isAuth, isAdmin], adminController.getDashboard);
 
-// Get all questions for creating a new exam
-// GET /api/v1/admin/exam/new
-router.get('/exam/new', [isAuth, isAdmin], adminController.getQuestionsForExam);
-
-// Create a new question
+// Create a new question in the create/update exam form
 // POST /api/v1/admin/question/new
 router.post('/question/new', [isAuth, isAdmin], [
     body('question').isString().isLength({min: 10}),
@@ -24,11 +20,11 @@ router.post('/question/new', [isAuth, isAdmin], [
     body('explaination').isString().isLength({min: 10}),
 ], adminController.createQuestion);
 
-// Get the data of a specific question
+// Get the data of a specific question in the create/update exam form
 // GET /api/v1/admin/question/:questionId
 router.get('/question/:questionId', [isAuth, isAdmin], adminController.getQuestionById);
 
-// Update the data of a specific question
+// Update the data of a specific question in the create/update exam form
 // PUT /api/v1/admin/question/:questionId
 router.put('/question/:questionId', [isAuth, isAdmin], [
     body('question').isString().isLength({min: 10}),
@@ -37,7 +33,7 @@ router.put('/question/:questionId', [isAuth, isAdmin], [
     body('explaination').isString().isLength({min: 10}),
 ], adminController.updateQuestion);
 
-// Delete a specific question
+// Delete a specific question in the create/update exam form
 // DELETE /api/v1/admin/question/:questionId
 router.delete('/question/:questionId', [isAuth, isAdmin], adminController.deleteQuestion);
 
@@ -46,9 +42,31 @@ router.delete('/question/:questionId', [isAuth, isAdmin], adminController.delete
 router.post('/exam/new', [isAuth, isAdmin], [
     body('title').isString().isLength({min: 10}),
     body('description').isString().isLength({min: 10}),
-    body('type').isString().isIn(['practice', 'midterm', 'final']),
-    body('startTime').isISO8601(),
-    body('endTime').isISO8601(),
+    body('typeExam').isString().isIn(['practice', 'midterm', 'final']),
+    body('typeTime').isString().isIn(['limited', 'free']),
+    body('startTime').custom((value, {req}) => {
+        if (req.body.typeTime === 'limited' && !value) {
+            if(!value) return Promise.reject('Start time is required!');
+            else return body('startTime').isISO8601();
+        } else if (req.body.typeTime === 'free' && value) {
+            return Promise.reject('Start time is not required!');
+        }
+        return true;
+    }),
+    body('endTime').custom((value, {req}) => {
+        if (req.body.typeTime === 'limited') {
+            if(!value) return Promise.reject('End time is required!');
+            else {
+                if (new Date(value) < new Date(req.body.startTime)) {
+                    return Promise.reject('End time must be after start time!');
+                }
+                return body('endTime').isISO8601();
+            }
+        } else if (req.body.typeTime === 'free' && value) {
+            return Promise.reject('End time is not required!');
+        }
+        return true;
+    }),
     body('questions').isArray({min: 3}),
     body('passingScore').isNumeric().isInt({min: 0, max: 10}),
 ], adminController.createExam);
@@ -62,9 +80,31 @@ router.get('/exam/:examId', [isAuth, isAdmin], adminController.getExamById);
 router.put('/exam/:examId', [isAuth, isAdmin], [
     body('title').isString().isLength({min: 10}),
     body('description').isString().isLength({min: 10}),
-    body('type').isString().isIn(['practice', 'midterm', 'final']),
-    body('startTime').isISO8601(),
-    body('endTime').isISO8601(),
+    body('typeExam').isString().isIn(['practice', 'midterm', 'final']),
+    body('typeTime').isString().isIn(['limited', 'free']),
+    body('startTime').custom((value, {req}) => {
+        if (req.body.typeTime === 'limited' && !value) {
+            if(!value) return Promise.reject('Start time is required!');
+            else return body('startTime').isISO8601();
+        } else if (req.body.typeTime === 'free' && value) {
+            return Promise.reject('Start time is not required!');
+        }
+        return true;
+    }),
+    body('endTime').custom((value, {req}) => {
+        if (req.body.typeTime === 'limited') {
+            if(!value) return Promise.reject('End time is required!');
+            else {
+                if (new Date(value) < new Date(req.body.startTime)) {
+                    return Promise.reject('End time must be after start time!');
+                }
+                return body('endTime').isISO8601();
+            }
+        } else if (req.body.typeTime === 'free' && value) {
+            return Promise.reject('End time is not required!');
+        }
+        return true;
+    }),
     body('questions').isArray({min: 3}),
     body('isFinished').isBoolean(),
     body('passingScore').isNumeric().isInt({min: 0, max: 10}),
