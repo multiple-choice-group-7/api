@@ -118,7 +118,13 @@ router.delete('/exam/:examId', [isAuth, isAdmin], adminController.deleteExam);
 // Create a new user
 // POST /api/v1/admin/user/new
 router.post('/user/new', [isAuth, isAdmin], [
-    body('username').isString().isLength({min: 3}),
+    body('username').isString().isLength({min: 3}).custom((value, {req}) => {
+        return User.findOne({username: value}).then(user => {
+            if (user) {
+                return Promise.reject('Username already exists!');
+            }
+        })
+    }),
     body('email').isEmail().custom((value, {req}) => {
         return User.findOne({email: value}).then(user => {
             if (user) {
@@ -139,6 +145,7 @@ router.post('/user/new', [isAuth, isAdmin], [
         }
         return true;
     }),
+    body('fullName').isString().isLength({min: 3}),
 ], adminController.createUser);
 
 // Get the data of a specific user
@@ -168,7 +175,8 @@ router.put('/user/:userId', [isAuth, isAdmin], [
             })
         }
         return true;
-    })
+    }),
+    body('fullName').isString().isLength({min: 3}),
 ], adminController.updateUser);
 
 // Delete a specific user

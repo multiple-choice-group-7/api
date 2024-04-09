@@ -3,28 +3,28 @@ const {validationResult} = require('express-validator');
 const Exam = require('../models/exam');
 const Question = require('../models/question');
 const Result = require('../models/result');
+const question = require('../models/question');
 
 exports.getExams = async (req, res, next) => {
     try {
         const title = req.query.title;
-        const isFinished = req.query.isFinished;
+        const typeTime = req.query.typeTime;
         let query = {};
         if (title) {
-            query.title = title;
+            query.title = {$regex: title, $options: 'i'};
         }
-        if (isFinished) {
-            query.isFinished = isFinished;
+        if (typeTime) {
+            query.typeTime = typeTime;
         }
-        const exams = await Exam.find(query);
+        const exams = await Exam.find(query).select('title description passingScore typeExam typeTime startTime endTime isFinished');
         if (!exams) {
             const error = new Error('Exams not found');
             error.statusCode = 404;
             throw error;
         }
-        const result = await Result.find({user: req.userId}).populate('exam');
-        const doneExams = result.map(res => res.exam);
-        const undoExams = exams.filter(exam => !doneExams.find(doneExam => doneExam._id.toString() === exam._id.toString()));
-        res.status(200).json({message: 'Exams fetched', doneExams: doneExams, undoExams: undoExams});
+        const freeExams = exams.filter(exam => exam.typeTime === 'free');
+        const limitedExams = exams.filter(exam => exam.typeTime === 'limited');
+        res.status(200).json({message: 'Exams fetched', freeExams: freeExams, limitedExams: limitedExams});
     } catch (error) {
         if (!error.statusCode) {
             error.statusCode = 500;
@@ -36,12 +36,6 @@ exports.getExams = async (req, res, next) => {
 exports.getExamById = async (req, res, next) => {
     const examId = req.params.examId;
     try {
-        const result = await Result.findOne({exam: examId, user: req.userId});
-        if (result) {
-            const error = new Error('You have already done this exam');
-            error.statusCode = 403;
-            throw error;
-        }
         const exam = await Exam.findById(examId).populate({
             path: 'questions',
             populate: {
@@ -53,6 +47,12 @@ exports.getExamById = async (req, res, next) => {
         if (!exam) {
             const error = new Error('Exam not found');
             error.statusCode = 404;
+            throw error;
+        }
+        const result = await Result.findOne({exam: examId, user: req.userId});
+        if (result) {
+            const error = new Error('You have already done this exam');
+            error.statusCode = 403;
             throw error;
         }
         res.status(200).json({message: 'Exam fetched', data: exam});
@@ -108,7 +108,7 @@ exports.submitExam = async (req, res, next) => {
             })
         });
         await result.save();
-        res.status(201).json({message: 'Exam submitted', data: result});
+        res.status(201).json({message: 'Exam submitted'});
     } catch (error) {
         if (!error.statusCode) {
             error.statusCode = 500;
@@ -130,13 +130,27 @@ exports.getResult = async (req, res, next) => {
                 path: 'user',
                 select: 'fullname idStudent -_id'
             });
-        if (!results) {
+        if (!results || results.length === 0) {
             const error = new Error('Results not found');
             error.statusCode = 404;
             throw error;
         }
+        // Format the result with answers of student has name studentAnswer instead of answer
+        const newRes = results.map(result => {
+            const newAnswers = result.answers.map(answer => {
+                return {
+                    // Remove the answer field
+                    question: answer.question,
+                    studentAnswer: answer.answer
+                }
+            });
+            return {
+                ...result._doc,
+                answers: newAnswers
+            }
+        });
         const formatRes = {
-            ...results[0]._doc,
+            ...newRes[0],
             totalQuestion: results[0].answers.length,
         }
         res.status(200).json({message: 'Results fetched', data: formatRes});

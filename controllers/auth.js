@@ -62,7 +62,8 @@ exports.login = async (req, res, next) => {
             username: user.email,
             userId: user._id.toString(),
         }, process.env.JWT_SECRET, {expiresIn: process.env.JWT_EXPIRES_IN});
-        res.status(200).json({message: 'Login successfully!', token: token});
+
+        res.status(200).json({message: 'Login successfully!', token: token, role: user.role});
     } catch (error) {
         if (!error.statusCode) {
             error.statusCode = 500;

@@ -5,62 +5,97 @@ const User = require('../models/user');
 const Exam = require('../models/exam');
 const Question = require('../models/question');
 const Result = require('../models/result');
+const exam = require('../models/exam');
 
 exports.getDashboard = async (req, res, next) => {
     try {
+        const errs = [];
         const users = await User.find();
-        if(!users) {
-            const error = new Error('Users not found');
-            error.statusCode = 404;
-            throw error;
+        if(!users || users.length === 0) {
+            const err = {
+                msg: 'Users not found',
+                obj: 'users'
+            }
+            errs.push(err);
         }
 
-        let exams = await Exam.find();
-        let results = [];
+        // get user has role different from admin and format the data: id, email, idStudent, fullname
+        let formatUsers = [];
+        users.forEach(user => {
+            if(user.role === 'admin') return;
+            formatUsers.push({
+                id: user._id,
+                email: user.email,
+                idStudent: user.idStudent,
+                fullname: user.fullname
+            });
+        });
+
+        let exams = await Exam.find().select('title description typeExam typeTime');
+        let statistics = [];
         if(!exams || exams.length === 0) {
-            exams = "No exams found";
+            const err = {
+                msg: 'Exams not found',
+                obj: 'exams'
+            }
+            errs.push(err);
         } else {
-            exams.forEach(async exam => {
+            for(const exam of exams) {
                 const result = await Result.find({exam: exam._id});
+
+                if(!result || result.length === 0) {
+                    countinue;
+                }
     
+                // calculate the percentage of students who passed the exam
                 // calculate the average score of the exam
                 let total = 0;
+                let passCount = 0;
                 let count = 0;
                 result.forEach(res => {
                     total += res.score;
                     count++;
-                });
-                const average = total / count;
-    
-                // calculate the percentage of students who passed the exam
-                let passCount = 0;
-                result.forEach(res => {
                     if(res.isPassed) {
                         passCount++;
                     }
                 });
-                const passPercentage = (passCount / count) * 100;
+                const average = total / count;
     
-                results.push({
+                const passPercentage = (passCount / count) * 100;
+
+                statistics.push({
                     exam: exam.title,
                     average: average,
                     passPercentage: passPercentage
                 });
-            });
+            };
         }
 
-        if(!results || results.length === 0) {
-            results = "No results found";
+        if(!statistics || statistics.length === 0) {
+            const err = {
+                msg: 'Don\'t have any statistics data',
+                obj: 'statistics'
+            }
+            errs.push(err);
+        }
+
+        if(errs.length > 0) {
+            const error = new Error('Data not found');
+            error.statusCode = 404;
+            error.data = errs;
+            throw error;
         }
 
         res.status(200).json({
             message: 'Data fetched successfully',
-            users: users,
+            users: formatUsers,
             exams: exams,
-            results: results
+            statistics: statistics
         });
     } catch (err) {
-        err.statusCode = 500;
+        if (!err.statusCode) {
+            err.statusCode = 500;
+        }
         next(err);
     }
 }
@@ -195,11 +230,6 @@ exports.createExam = async (req, res, next) => {
             error.data = errors.array();
             throw error;
         }
-        if (!questions || questions.length === 0) {
-            const error = new Error('Questions are required');
-            error.statusCode = 422;
-            throw error;
-        }
 
         const exam = new Exam({
             title: title,
@@ -261,11 +291,6 @@ exports.updateExam = async (req, res, next) => {
             const error = new Error('Validation failed');
             error.statusCode = 422;
             error.data = errors.array();
-            throw error;
-        }
-        if (!questions || questions.length === 0) {
-            const error = new Error('Questions are required');
-            error.statusCode = 422;
             throw error;
         }
 
@@ -447,17 +472,29 @@ exports.deleteUser = async (req, res, next) => {
 
 exports.getStatistics = async (req, res, next) => {
     try {
-        const examType = req.query.examType;
+        const examTitle = req.query.examTitle;
         const examDate = req.query.examDate;
         let query = {};
 
-        if(examType) {
-            query.exam = examType;
+        if(examTitle) {
+            const exam = await Exam.findOne({title: {$regex: examTitle, $options: 'i' }});
+            if(!exam) {
+                const error = new Error('Exam not found');
+                error.statusCode = 404;
+                throw error;
+            }
+            query.exam = exam._id;
         }
         if(examDate) {
             query.exam = {
-                startTime: { $gte: new Date(examDate + 'T00:00:00.000Z') },
-                endTime: { $lte: new Date(examDate + 'T23:59:59.999Z') }
+                $elemMatch: {
+                    startTime: {
+                        $gte: examDate + 'T00:00:00.000Z',
+                    },
+                    endTime: {
+                        $lte: examDate + 'T23:59:59.999Z'
+                    }
+                }
             }
         }
 
@@ -475,14 +512,15 @@ exports.getStatistics = async (req, res, next) => {
             query.user = users[i]._id;
             const results = await Result.find(query).populate('exam');
             if(!results || results.length === 0) {
-                formatResults.push({
-                    user: users[i].username,
-                    idStudent: users[i].idStudent,
-                    average: 0,
-                    passPercentage: 0,
-                    numberPerformed: 0,
-                    details: []
-                });
+                if(query && Object.keys(query).length === 1) 
+                    formatResults.push({
+                        user: users[i].username,
+                        idStudent: users[i].idStudent,
+                        average: 0,
+                        passPercentage: 0,
+                        numberPerformed: 0,
+                        details: []
+                    });
                 continue;
             }
 
@@ -508,13 +546,19 @@ exports.getStatistics = async (req, res, next) => {
             const passPercentage = (passCount / count) * 100;
 
             formatResults.push({
-                user: users[i].username,
+                fullname: users[i].fullname,
                 idStudent: users[i].idStudent,
                 average: average,
                 passPercentage: passPercentage,
                 numberPerformed: count,
                 details: details
             });
+        }
+
+        if(formatResults.length === 0) {
+            const error = new Error('Don\'t have any statistics data matching the query!');
+            error.statusCode = 404;
+            throw error;
         }
 
         res.status(200).json({message: 'Statistics fetched!', results: formatResults});
@@ -533,7 +577,7 @@ exports.getDetailResult = async (req, res, next) => {
 
         let query = {};
         if(fullname) {
-            query.fullname = fullname;
+            query.fullname = {$regex: fullname, $options: 'i'};
         }
         if(idStudent) {
             query.idStudent = idStudent;
@@ -550,8 +594,7 @@ exports.getDetailResult = async (req, res, next) => {
 
         for(let i = 0; i < user.length; i++) {
             if(user[i].role === 'admin') continue;
-            query.user = user[i]._id;
-            const results = await Result.find(query)
+            const results = await Result.find({user: user[i]._id})
                 .populate({
                     path: 'exam',
                     select: 'title passingScore description typeExam typeTime startTime endTime isFinished -_id'
@@ -562,15 +605,30 @@ exports.getDetailResult = async (req, res, next) => {
                 formatResults.push({
                     user: user[i].username,
                     idStudent: user[i].idStudent,
-                    details: []
+                    details: "Don't have any result!"
                 });
                 continue;
             }
+            
+            const newRes = results.map(result => {
+                const newAnswers = result.answers.map(answer => {
+                    return {
+                        // Remove the answer field
+                        question: answer.question,
+                        studentAnswer: answer.answer
+                    }
+                });
+                return {
+                    ...result._doc,
+                    answers: newAnswers
+                }
+            });
 
             formatResults.push({
-                user: user[i].username,
+                username: user[i].username,
+                fullname: user[i].fullname,
                 idStudent: user[i].idStudent,
-                details: results
+                details: newRes
             });
         }
         res.status(200).json({message: 'Detail result fetched!', results: formatResults});

@@ -30,20 +30,6 @@ app.use((error, req, res, next) => {
 
 mongoose.connect(process.env.MONGODB_URI)
     .then(result => {
-        User.findOne().then(result => {
-            if (!result) {
-                bcrypt.hash('admin123', 12)
-                    .then(hashedPassword => {
-                        const user = new User({
-                            email: 'admin@gmail.com',
-                            password: hashedPassword,
-                            username: 'admin',
-                            role: 'admin'
-                        });
-                        user.save();
-                    })
-            }
-        });
         app.listen(process.env.PORT || 3000, () => {
             console.log('Server is running on port ' + process.env.PORT || '3000');
         })
