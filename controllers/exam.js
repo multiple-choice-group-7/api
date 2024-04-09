@@ -65,18 +65,25 @@ exports.getExamById = async (req, res, next) => {
 }
 
 exports.submitExam = async (req, res, next) => {
+    const errors = validationResult(req);
     const examId = req.params.examId;
     const userId = req.userId;
     const answers = req.body.answers;
     const totalTime = req.body.totalTime;
     try {
+        if (!errors.isEmpty()) {
+            const error = new Error('Validation failed');
+            error.statusCode = 422;
+            error.data = errors.array();
+            throw error;
+        }
         const check = await Result.findOne({exam: examId, user: userId});
         if (check) {
             const error = new Error('You have already done this exam');
             error.statusCode = 403;
             throw error;
         }
-        const exam = await Exam.findById(examId).populate('questions');
+        const exam = await Exam.findById(examId).populate('questions.question');
         if (!exam) {
             const error = new Error('Exam not found');
             error.statusCode = 404;
@@ -84,8 +91,9 @@ exports.submitExam = async (req, res, next) => {
         }
         let score = 0;
         let cnt = 0;
-        for (let i = 0; i < answers.length; i++) {
-            if (exam.questions[i].answer === answers[i]) {
+        for (let i = 0; i < exam.questions.length; i++) {
+            const questionId = answers.findIndex(ans => ans.questionId.toString() === exam.questions[i].question._id.toString());
+            if (exam.questions[i].question.answer === answers[questionId].answer && questionId !== -1) {
                 score+=exam.questions[i].mark;
                 cnt++;
             }
@@ -101,9 +109,10 @@ exports.submitExam = async (req, res, next) => {
             isPassed: isPassed,
             correctNumber: cnt,
             answers: exam.questions.map((question, index) => {
+                const answer = answers.find(ans => ans.questionId.toString() === question.question._id.toString()) || {answer: -1};
                 return {
                     question: question.question._id,
-                    answer: answers[index]
+                    answer: answer.answer
                 }
             })
         });

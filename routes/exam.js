@@ -19,11 +19,17 @@ router.get('/:examId', isAuth, examController.getExamById);
 // POST /api/v1/exam/:examId
 router.post('/:examId', isAuth, [
     body('answers').isArray({min: 3}).custom((value) => {
-        value.forEach(answer => {
-            if (typeof answer !== 'number' || answer < 0 || answer > 3) {
-                return Promise.reject('Invalid answer format');
+        for(const answer of value) {
+            if (typeof answer !== 'object' ||
+            !answer.hasOwnProperty('answer') || 
+            !answer.hasOwnProperty('questionId') || 
+            typeof answer.answer !== 'number' || 
+            !Number.isInteger(answer.answer) || 
+            answer.answer < 0 || answer.answer > 3) {
+                return Promise.reject('Answers must be an array of objects with answer and questionId properties, answer must be a number, and answer must be an integer between 0 and 3');
             }
-        });
+        }
+        return true;
     }),
     body('totalTime').isNumeric().isInt({min: 1}),
 ], examController.submitExam);
