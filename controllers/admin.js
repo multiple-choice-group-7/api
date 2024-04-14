@@ -106,6 +106,8 @@ exports.createQuestion = async (req, res, next) => {
     const options = req.body.options;
     const answer = req.body.answer;
     const explaination = req.body.explaination;
+    const mark = req.body.mark;
+    const examId = req.params.examId;
 
     try {
         if (!errors.isEmpty()) {
@@ -123,7 +125,16 @@ exports.createQuestion = async (req, res, next) => {
         });
 
         const result = await newQuestion.save();
-        res.status(201).json({message: 'Question created!', questionId: result._id});
+
+        const exam = await Exam.findById(examId).populate('questions.question');
+        if(!exam) {
+            const error = new Error('Exam not found');
+            error.statusCode = 404;
+            throw error;
+        }
+        exam.questions.push({question: result._id, mark: mark});
+        const updatedExam = await exam.save();
+        res.status(201).json({message: 'Question created!', exam: updatedExam});
     } catch (error) {
         if (!error.statusCode) {
             error.statusCode = 500;
@@ -134,16 +145,34 @@ exports.createQuestion = async (req, res, next) => {
 
 exports.getQuestionById = async (req, res, next) => {
     const questionId = req.params.questionId;
+    const examId = req.params.examId;
 
     try {
+        //  find the questionId exists in the examId
+        const exam = await Exam.findById(examId);
+        if(!exam) {
+            const error = new Error('Exam not found');
+            error.statusCode = 404;
+            throw error;
+        }
+        const questionCheck = exam.questions.find(q => q.question.toString() === questionId);
+        if(!questionCheck) {
+            const error = new Error('Question does not exist in the exam!');
+            error.statusCode = 404;
+            throw error;
+        }
         const question = await Question.findById(questionId);
         if(!question) {
             const error = new Error('Question not found');
             error.statusCode = 404;
             throw error;
         }
+        const formatQuestion = {
+            ...question._doc,
+            mark: questionCheck.mark
+        }
         
-        res.status(200).json({message: 'Question fetched!', question: question});
+        res.status(200).json({message: 'Question fetched!', question: formatQuestion});
     } catch (error) {
         if (!error.statusCode) {
             error.statusCode = 500;
@@ -159,6 +188,8 @@ exports.updateQuestion = async (req, res, next) => {
     const options = req.body.options;
     const answer = req.body.answer;
     const explaination = req.body.explaination;
+    const mark = req.body.mark;
+    const examId = req.params.examId;
 
     try {
         if (!errors.isEmpty()) {
@@ -179,9 +210,24 @@ exports.updateQuestion = async (req, res, next) => {
         updatedQuestion.options = options;
         updatedQuestion.answer = answer;
         updatedQuestion.explaination = explaination;
-
         const result = await updatedQuestion.save();
-        res.status(200).json({message: 'Question updated!', questionId: result._id});
+
+        const exam = await Exam.findById(examId).populate('questions.question');
+        if(!exam) {
+            const error = new Error('Exam not found');
+            error.statusCode = 404;
+            throw error;
+        }
+        const questionCheck = exam.questions.find(q => q.question._id.toString() === questionId);
+        if(!questionCheck) {
+            const error = new Error('Question does not exist in the exam!');
+            error.statusCode = 404;
+            throw error;
+        }
+        questionCheck.mark = mark;
+        const updatedExam = await exam.save();
+
+        res.status(200).json({message: 'Question updated!', question: updatedExam});
     } catch (error) {
         if (!error.statusCode) {
             error.statusCode = 500;
@@ -192,6 +238,7 @@ exports.updateQuestion = async (req, res, next) => {
 
 exports.deleteQuestion = async (req, res, next) => {
     const questionId = req.params.questionId;
+    const examId = req.params.examId;
 
     try {
         const question = await Question.findById(questionId);
@@ -202,7 +249,17 @@ exports.deleteQuestion = async (req, res, next) => {
         }
         
         await Question.findByIdAndDelete(questionId);
-        res.status(200).json({message: 'Question deleted!'});
+
+        const exam = await Exam.findById(examId);
+        if(!exam) {
+            const error = new Error('Exam not found');
+            error.statusCode = 404;
+            throw error;
+        }
+        exam.questions = exam.questions.filter(q => q.question.toString() !== questionId);
+        const updatedExam = await exam.save();
+        
+        res.status(200).json({message: 'Question deleted!', exam: updatedExam});
     } catch (error) {
         if (!error.statusCode) {
             error.statusCode = 500;
@@ -219,7 +276,6 @@ exports.createExam = async (req, res, next) => {
     const typeTime = req.body.typeTime;
     const startTime = req.body.startTime;
     const endTime = req.body.endTime;
-    const questions = req.body.questions;
     const passingScore = req.body.passingScore;
 
 
@@ -238,13 +294,12 @@ exports.createExam = async (req, res, next) => {
             typeTime: typeTime,
             startTime: startTime,
             endTime: endTime,
-            questions: questions,
             isFinished: false,
             passingScore: passingScore
         });
 
         const result = await exam.save();
-        res.status(201).json({message: 'Exam created!', examId: result._id});
+        res.status(201).json({message: 'Exam created!', exam: result});
     } catch (error) {
         if (!error.statusCode) {
             error.statusCode = 500;
@@ -282,7 +337,6 @@ exports.updateExam = async (req, res, next) => {
     const typeTime = req.body.typeTime;
     const startTime = req.body.startTime;
     const endTime = req.body.endTime;
-    const questions = req.body.questions;
     const isFinished = req.body.isFinished;
     const passingScore = req.body.passingScore;
 
@@ -307,12 +361,11 @@ exports.updateExam = async (req, res, next) => {
         exam.typeTime = typeTime;
         exam.startTime = startTime;
         exam.endTime = endTime;
-        exam.questions = questions;
         exam.isFinished = isFinished;
         exam.passingScore = passingScore;
 
         const result = await exam.save();
-        res.status(200).json({message: 'Exam updated!', examId: result._id});
+        res.status(200).json({message: 'Exam updated!', exam: result});
     } catch (error) {
         if (!error.statusCode) {
             error.statusCode = 500;

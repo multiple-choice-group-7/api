@@ -22,9 +22,15 @@ exports.getExams = async (req, res, next) => {
             error.statusCode = 404;
             throw error;
         }
-        const freeExams = exams.filter(exam => exam.typeTime === 'free');
-        const limitedExams = exams.filter(exam => exam.typeTime === 'limited');
-        res.status(200).json({message: 'Exams fetched', freeExams: freeExams, limitedExams: limitedExams});
+        const doneExams = exams.filter(exam => {
+            const result = Result.findOne({exam: exam._id, user: req.userId});
+            if (!result) {
+                return false;
+            }
+            return true;
+        });
+        const unDoExams = exams.filter(exam => !doneExams.find(doneExam => doneExam._id.toString() === exam._id.toString()));
+        res.status(200).json({message: 'Exams fetched', doneExams: doneExams, unDoExams: unDoExams});
     } catch (error) {
         if (!error.statusCode) {
             error.statusCode = 500;

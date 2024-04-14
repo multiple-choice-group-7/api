@@ -11,32 +11,6 @@ const adminController = require('../controllers/admin');
 // GET /api/v1/admin/dashboard
 router.get('/dashboard', [isAuth, isAdmin], adminController.getDashboard);
 
-// Create a new question in the create/update exam form
-// POST /api/v1/admin/question/new
-router.post('/question/new', [isAuth, isAdmin], [
-    body('question').isString().isLength({min: 10}),
-    body('options').isArray({min: 4, max: 4}),
-    body('answer').isNumeric().isInt({min: 0, max: 3}),
-    body('explaination').isString().isLength({min: 10}),
-], adminController.createQuestion);
-
-// Get the data of a specific question in the create/update exam form
-// GET /api/v1/admin/question/:questionId
-router.get('/question/:questionId', [isAuth, isAdmin], adminController.getQuestionById);
-
-// Update the data of a specific question in the create/update exam form
-// PUT /api/v1/admin/question/:questionId
-router.put('/question/:questionId', [isAuth, isAdmin], [
-    body('question').isString().isLength({min: 10}),
-    body('options').isArray({min: 4, max: 4}),
-    body('answer').isNumeric().isInt({min: 0, max: 3}),
-    body('explaination').isString().isLength({min: 10}),
-], adminController.updateQuestion);
-
-// Delete a specific question in the create/update exam form
-// DELETE /api/v1/admin/question/:questionId
-router.delete('/question/:questionId', [isAuth, isAdmin], adminController.deleteQuestion);
-
 // Create a new exam
 // POST /api/v1/admin/exam/new
 router.post('/exam/new', [isAuth, isAdmin], [
@@ -67,7 +41,6 @@ router.post('/exam/new', [isAuth, isAdmin], [
         }
         return true;
     }),
-    body('questions').isArray({min: 3}),
     body('passingScore').isNumeric().isInt({min: 0, max: 10}),
 ], adminController.createExam);
 
@@ -105,7 +78,6 @@ router.put('/exam/:examId', [isAuth, isAdmin], [
         }
         return true;
     }),
-    body('questions').isArray({min: 3}),
     body('isFinished').isBoolean(),
     body('passingScore').isNumeric().isInt({min: 0, max: 10}),
 
@@ -114,6 +86,34 @@ router.put('/exam/:examId', [isAuth, isAdmin], [
 // Delete a specific exam
 // DELETE /api/v1/admin/exam/:examId
 router.delete('/exam/:examId', [isAuth, isAdmin], adminController.deleteExam);
+
+// Create a new question in the create/update exam form
+// POST /api/v1/admin/exam/:examId/question/new
+router.post('/exam/:examId/question/new', [isAuth, isAdmin], [
+    body('question').isString().isLength({min: 10}),
+    body('options').isArray({min: 4, max: 4}),
+    body('answer').isNumeric().isInt({min: 0, max: 3}),
+    body('explaination').isString().isLength({min: 10}),
+    body('mark').isNumeric().isInt({min: 1}),
+], adminController.createQuestion);
+
+// Get the data of a specific question in the create/update exam form
+// GET /api/v1/admin/exam/:examId/question/:questionId
+router.get('/exam/:examId/question/:questionId', [isAuth, isAdmin], adminController.getQuestionById);
+
+// Update the data of a specific question in the create/update exam form
+// PUT /api/v1/admin/exam/:examId/question/:questionId
+router.put('/exam/:examId/question/:questionId', [isAuth, isAdmin], [
+    body('question').isString().isLength({min: 10}),
+    body('options').isArray({min: 4, max: 4}),
+    body('answer').isNumeric().isInt({min: 0, max: 3}),
+    body('explaination').isString().isLength({min: 10}),
+    body('mark').isNumeric().isInt({min: 1}),
+], adminController.updateQuestion);
+
+// Delete a specific question in the create/update exam form
+// DELETE /api/v1/admin/question/:questionId
+router.delete('/exam/:examId/question/:questionId', [isAuth, isAdmin], adminController.deleteQuestion);
 
 // Create a new user
 // POST /api/v1/admin/user/new
