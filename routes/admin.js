@@ -145,7 +145,7 @@ router.post('/user/new', [isAuth, isAdmin], [
         }
         return true;
     }),
-    body('fullName').isString().isLength({min: 3}),
+    body('fullname').isString().isLength({min: 3}),
 ], adminController.createUser);
 
 // Get the data of a specific user
@@ -176,7 +176,7 @@ router.put('/user/:userId', [isAuth, isAdmin], [
         }
         return true;
     }),
-    body('fullName').isString().isLength({min: 3}),
+    body('fullname').isString().isLength({min: 3}),
 ], adminController.updateUser);
 
 // Delete a specific user

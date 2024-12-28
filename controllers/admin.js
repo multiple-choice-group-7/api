@@ -42,10 +42,6 @@ exports.getDashboard = async (req, res, next) => {
         } else {
             for(const exam of exams) {
                 const result = await Result.find({exam: exam._id});
-
-                if(!result || result.length === 0) {
-                    countinue;
-                }
     
                 // calculate the percentage of students who passed the exam
                 // calculate the average score of the exam
@@ -538,17 +534,13 @@ exports.getStatistics = async (req, res, next) => {
             }
             query.exam = exam._id;
         }
+        // if examDate is not null, query the the element in model Exam in model Result by the examDate with startTime >= examDate and endTime <= examDate
         if(examDate) {
-            query.exam = {
-                $elemMatch: {
-                    startTime: {
-                        $gte: examDate + 'T00:00:00.000Z',
-                    },
-                    endTime: {
-                        $lte: examDate + 'T23:59:59.999Z'
-                    }
-                }
-            }
+            const examId = await Exam.find({
+                startTime: {$gte: examDate + 'T00:00:00.000+00:00'},
+                endTime: {$lte: examDate + 'T23:59:59.999+00:00'}
+            }).select('_id');
+            query.exam = {$in: examId};
         }
 
         const users = await User.find();

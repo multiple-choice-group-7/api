@@ -98,8 +98,8 @@ exports.submitExam = async (req, res, next) => {
         let score = 0;
         let cnt = 0;
         for (let i = 0; i < exam.questions.length; i++) {
-            const questionId = answers.findIndex(ans => ans.questionId.toString() === exam.questions[i].question._id.toString());
-            if (exam.questions[i].question.answer === answers[questionId].answer && questionId !== -1) {
+            const questionIds = answers.findIndex(ans => ans.questionId === exam.questions[i].question._id.toString());
+            if (exam.questions[i].question.answer === answers[questionIds].answer && questionIds !== -1) {
                 score+=exam.questions[i].mark;
                 cnt++;
             }
